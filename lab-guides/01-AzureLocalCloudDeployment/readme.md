@@ -79,7 +79,7 @@ result:
 
 ### NTP Prerequisite (Virtual Lab)
 
-To sucessfully configure NTP server it's necessary to disable time synchronization from Hyper-V host.
+To successfully configure NTP server it's necessary to disable time synchronization from Hyper-V host.
 
 Run following code **from hyper-v host** to disable time sync
 
@@ -113,7 +113,7 @@ Test-NetConnection -ComputerName "ALNode1","ALNode2" -CommonTCPPort WINRM
 
 ![](./media/powershell03.png)
 
-> If WINRM fails and if your management is in different subnet, Windows Firewall is by default configured to accept connections on localsubnet only
+> If WINRM fails and if your management is in different subnet, Windows Firewall is by default configured to accept connections on local subnet only
 
 ![](./media/powershell04.png)
 
@@ -154,7 +154,7 @@ Invoke-Command -ComputerName $Servers -ScriptBlock {
 I prefer to install OS updates in this step as OS version (UBR) is 469, while January2025 version is 1308. OS updates are installed as part of deployment.
 
 ```PowerShell
-#install hyper-v and Failover-Clustering feature (this is usefull if you use older ISO)
+#install hyper-v and Failover-Clustering feature (this is useful if you use older ISO)
 #failover clustering will enable firewall rules such as icmp, computer management, event log management... 
 
 Invoke-Command -ComputerName $servers -ScriptBlock {
@@ -207,7 +207,7 @@ $ComputersInfo | Select-Object PSComputerName,ProductName,DisplayVersion,UBR
 
 #### Step 2 Install Dell Drivers - AX Nodes
 
-The validation process later in the guide makes sure if you dont have default NIC driver. So you can either install all drivers, or just Mellanox/Intel NIC driver.
+The validation process later in the guide makes sure if you don't have default NIC driver. So you can either install all drivers, or just Mellanox/Intel NIC driver.
 
 Following example installs all drivers and in case you have newer drivers, it will downgrade. You can simply modify the code to just scan for compliance and display status. This will also make your life easier if for some reason you updated to newer drivers than SBE. SBE would fail as firmware extension can't downgrade.
 
@@ -216,7 +216,7 @@ Following example installs all drivers and in case you have newer drivers, it wi
     #region update servers with latest hardware updates
         $DSUDownloadFolder="$env:USERPROFILE\Downloads\DSU"
 
-        #Set up web client to download files with autheticated web request
+        #Set up web client to download files with authenticated web request
         $WebClient = New-Object System.Net.WebClient
         #$proxy = new-object System.Net.WebProxy
         $proxy = [System.Net.WebRequest]::GetSystemWebProxy()
