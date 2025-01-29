@@ -532,7 +532,7 @@ Register-AzResourceProvider -ProviderNamespace "Microsoft.AzureStackHCI"
 
 ### Task07 - Validation Prerequisites
 
-There are just few settings needed before sucessful validation for lab running in VMs
+There are just few settings needed before successful validation for lab running in VMs
 
     * Making sure password is complex enough
     * Just one IP with Gateway (might change in future)
@@ -552,7 +552,7 @@ Following PowerShell will make sure all is set
     $Credentials= New-Object System.Management.Automation.PSCredential ($UserName,$SecuredPassword)
 #endregion
 
-#region to sucessfully validate you need make sure there's just one GW
+#region to successfully validate you need make sure there's just one GW
     #make sure there is only one management NIC with IP address (setup is complaining about multiple gateways)
     Invoke-Command -ComputerName $servers -ScriptBlock {
         Get-NetIPConfiguration | Where-Object IPV4defaultGateway | Get-NetAdapter | Sort-Object Name | Select-Object -Skip 1 | Set-NetIPInterface -Dhcp Disabled
@@ -586,7 +586,7 @@ One prerequisite is to install NIC Drivers, but we already covered this in Task0
 
 ```PowerShell
     #region populate SBE package
-        #Set up web client to download files with autheticated web request in case there's a proxy
+        #Set up web client to download files with authenticated web request in case there's a proxy
         $WebClient = New-Object System.Net.WebClient
         #$proxy = new-object System.Net.WebProxy
         $proxy = [System.Net.WebRequest]::GetSystemWebProxy()
