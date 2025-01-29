@@ -25,13 +25,13 @@
             - [Step 1 - Populate latest SBE package AXNodes only](#step-1---populate-latest-sbe-package-axnodes-only)
             - [Step 2 - Exclude iDRAC adapters from cluster networks](#step-2---exclude-idrac-adapters-from-cluster-networks)
             - [Step 3 - Clear data disks](#step-3---clear-data-disks)
-        - [Task 09 - Deploy Azure Stack from Azure Portal](#task-09---deploy-azure-stack-from-azure-portal)
+        - [Task 09 - Deploy Azure Local from Azure Portal](#task-09---deploy-azure-local-from-azure-portal)
 
 <!-- /TOC -->
 
 ## About the lab
 
-In this lab you will deploy 2 node Azure Stack HCI cluster using [cloud deployment](https://learn.microsoft.com/en-us/azure-stack/hci/whats-new#cloud-based-deployment).
+In this lab you will deploy 2 node Azure Local cluster using [cloud deployment](https://learn.microsoft.com/en-us/azure-stack/hci/whats-new#cloud-based-deployment).
 
 You can also deploy physical machines with [MDT](../../admin-guides/03-DeployPhysicalServersWithMSLab/readme.md). In this guide you will also see notes for physical environment.
 
@@ -48,7 +48,7 @@ You can register servers using PowerShell or using WebUI. WebUI process simplifi
 
 * Understand [how MSLab works](../../admin-guides/02-WorkingWithMSLab/readme.md)
 
-* Make sure you hydrate latest [Azure Stack HCI 23H2 Image](https://aka.ms/HCIReleaseImage) using CreateParentDisk.ps1 located in ParentDisks folder as it contains [WebUI onboarding](https://learn.microsoft.com/en-us/azure-stack/hci/deploy/deployment-arc-register-local-ui)
+* Make sure you hydrate latest [Azure Local 23H2 Image](https://aka.ms/HCIReleaseImage) using CreateParentDisk.ps1 located in ParentDisks folder as it contains [WebUI onboarding](https://learn.microsoft.com/en-us/azure-stack/hci/deploy/deployment-arc-register-local-ui)
 
 * Note: this lab uses ~60GB RAM. To reduce amount of RAM, you would need to reduce number of nodes.
 
@@ -57,7 +57,7 @@ You can register servers using PowerShell or using WebUI. WebUI process simplifi
 ```PowerShell
 $LabConfig=@{AllowedVLANs="1-10,711-719" ; DomainAdminName='LabAdmin'; AdminPassword='LS1setup!' ; DCEdition='4'; Internet=$true; TelemetryLevel='Full' ; TelemetryNickname='' ; AdditionalNetworksConfig=@(); VMs=@()}
 
-#Azure Stack HCI 23H2
+#Azure Local 23H2
 #labconfig will not domain join VMs
 1..2 | ForEach-Object {$LABConfig.VMs += @{ VMName = "ALNode$_" ; Configuration = 'S2D' ; ParentVHD = 'AzSHCI23H2_G2.vhdx' ; HDDNumber = 4 ; HDDSize= 1TB ; MemoryStartupBytes= 24GB; VMProcessorCount="MAX" ; vTPM=$true ; Unattend="NoDjoin" ; NestedVirt=$true }}
 
@@ -660,7 +660,7 @@ In case disks were used before, it might be useful to wipe it.
 
 ```
 
-### Task 09 - Deploy Azure Stack from Azure Portal
+### Task 09 - Deploy Azure Local from Azure Portal
 
 Use values below for virtual cluster
 
