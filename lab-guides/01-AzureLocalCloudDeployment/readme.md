@@ -14,8 +14,8 @@
             - [Step 3 Connect to servers using WinRM](#step-3-connect-to-servers-using-winrm)
         - [Task02 - Install updates and features](#task02---install-updates-and-features)
             - [Step 1 Install server features, and updates](#step-1-install-server-features-and-updates)
-            - [Step 2 Install Dell Drivers AX Nodes](#step-2-install-dell-drivers-ax-nodes)
-        - [Step 3 Restart servers to apply changes](#step-3-restart-servers-to-apply-changes)
+            - [Step 2 Install Dell Drivers - AX Nodes](#step-2-install-dell-drivers---ax-nodes)
+            - [Step 3 Restart servers to apply changes](#step-3-restart-servers-to-apply-changes)
         - [Task03 - Validate environment using Envornent Checker tool](#task03---validate-environment-using-envornent-checker-tool)
             - [Step 1 Run connectivity checker](#step-1-run-connectivity-checker)
         - [Task04 - Create Azure Resources](#task04---create-azure-resources)
@@ -23,7 +23,7 @@
         - [Task 06a - Connect nodes to Azure - WebUI](#task-06a---connect-nodes-to-azure---webui)
         - [Task 06b - Connect nodes to Azure - PowerShell](#task-06b---connect-nodes-to-azure---powershell)
         - [Task07 - Validation Prerequisites](#task07---validation-prerequisites)
-        - [Task08 - Validation Prerequisites AXNodes](#task08---validation-prerequisites-axnodes)
+        - [Task08 - Validation Prerequisites - AXNodes](#task08---validation-prerequisites---axnodes)
             - [Step 1 - Populate latest SBE package](#step-1---populate-latest-sbe-package)
             - [Step 2 - Exclude iDRAC adapters from cluster networks](#step-2---exclude-idrac-adapters-from-cluster-networks)
             - [Step 3 - Clear data disks](#step-3---clear-data-disks)
@@ -206,7 +206,7 @@ $ComputersInfo | Select-Object PSComputerName,ProductName,DisplayVersion,UBR
 
 ```
 
-#### Step 2 Install Dell Drivers (AX Nodes)
+#### Step 2 Install Dell Drivers - AX Nodes
 
 The validation process later in the guide makes sure if you dont have default NIC driver. So you can either install all drivers, or just Mellanox/Intel NIC driver.
 
@@ -320,7 +320,7 @@ Following example installs all drivers and in case you have newer drivers, it wi
     #endregion
 ```
 
-### Step 3 Restart servers to apply changes
+#### Step 3 Restart servers to apply changes
 
 ```PowerShell
 #region restart servers to apply changes
@@ -589,7 +589,7 @@ Following PowerShell will make sure all is set
  
 ```
 
-### Task08 - Validation Prerequisites AXNodes
+### Task08 - Validation Prerequisites - AXNodes
 
 One prerequisite is to install NIC Drivers, but we already covered this in Task02 where servers were updated
 
