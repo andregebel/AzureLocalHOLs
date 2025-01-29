@@ -92,7 +92,7 @@ Download and copy to Azure Stack HCI cluster
 ```PowerShell
 $ClusterName="AXClus02"
 
-#Set up web client to download files with autheticated web request in case there's a proxy
+#Set up web client to download files with authenticated web request in case there's a proxy
 $WebClient = New-Object System.Net.WebClient
 #$proxy = new-object System.Net.WebProxy
 $proxy = [System.Net.WebRequest]::GetSystemWebProxy()
@@ -135,7 +135,7 @@ Invoke-Command -ComputerName $ClusterName -ScriptBlock {
 
 ![](./media/powershell04.png)
 
-Note: after executiong Add-Solution update, package is transfered into C:\ClusterStorage\Infrastructure_1\Shares\SU1_Infrastructure_1\Updates\Packages. To remove it, you can simply delete package from packages folder as there's no "Remove-SolutinUpdate" command
+Note: after executing Add-Solution update, package is transferred into C:\ClusterStorage\Infrastructure_1\Shares\SU1_Infrastructure_1\Updates\Packages. To remove it, you can simply delete package from packages folder as there's no "Remove-SolutionUpdate" command
 
 ![](./media/explorer01.png)
 
@@ -360,7 +360,7 @@ Remove-Item -Path $env:userprofile\Downloads\SBE\*.* -Recurse
 
 
 
-#Set up web client to download files with autheticated web request in case there's a proxy
+#Set up web client to download files with authenticated web request in case there's a proxy
 $WebClient = New-Object System.Net.WebClient
 #$proxy = new-object System.Net.WebProxy
 $proxy = [System.Net.WebRequest]::GetSystemWebProxy()

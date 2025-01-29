@@ -1,5 +1,4 @@
 # Azure Local 23H2 Deployment
-
 <!-- TOC -->
 
 - [Azure Local 23H2 Deployment](#azure-local-23h2-deployment)
@@ -16,7 +15,7 @@
             - [Step 1 Install server features, and updates](#step-1-install-server-features-and-updates)
             - [Step 2 Install Dell Drivers - AX Nodes](#step-2-install-dell-drivers---ax-nodes)
             - [Step 3 Restart servers to apply changes](#step-3-restart-servers-to-apply-changes)
-        - [Task03 - Validate environment using Envornent Checker tool](#task03---validate-environment-using-envornent-checker-tool)
+        - [Task03 - Validate environment using Environment Checker tool](#task03---validate-environment-using-environment-checker-tool)
         - [Task04 - Create Azure Resources](#task04---create-azure-resources)
         - [Task05 - Create AD Prerequisites](#task05---create-ad-prerequisites)
         - [Task 06a - Connect nodes to Azure - WebUI](#task-06a---connect-nodes-to-azure---webui)
@@ -331,7 +330,7 @@ $ComputersInfo | Select-Object PSComputerName,ProductName,DisplayVersion,UBR
  
 ```
 
-### Task03 - Validate environment using Envornent Checker tool
+### Task03 - Validate environment using Environment Checker tool
 
 * about: https://learn.microsoft.com/en-in/azure/azure-local/manage/use-environment-checker?tabs=connectivity
 
