@@ -146,262 +146,69 @@ Invoke-Command -ComputerName $Servers -ScriptBlock {
 
 ![](./media/powershell05.png)
 
-### Task02 - Validate environment using Envornent Checker tool
+### Task02 - Install updates and features
 
-* about: https://learn.microsoft.com/en-in/azure/azure-local/manage/use-environment-checker?tabs=connectivity
+#### Step 1 Install server features, and updates
 
-#### Step 1 Run connectivity checker
-
-Since we already have credentials and TrustedHosts configured in Powershel from Task01, we can run following code
-
-> for some reason I was not able to run it using sessions as it complained about not being able to create PSDrive
+I prefer to install OS updates in this step as OS version (UBR) is 469, while January2025 version is 1308. OS updates are installed as part of deployment.
 
 ```PowerShell
-$result=Invoke-Command -ComputerName $Servers -Scriptblock {
-    Install-Module PowerShellGet -AllowClobber -Force
-    Install-Module -Name AzStackHci.EnvironmentChecker -Force
-    Invoke-AzStackHciConnectivityValidation -PassThru
+#install hyper-v and Failover-Clustering feature (this is usefull if you use older ISO)
+#failover clustering will enable firewall rules such as icmp, computer management, event log management... 
+
+Invoke-Command -ComputerName $servers -ScriptBlock {
+    Enable-WindowsOptionalFeature -FeatureName Microsoft-Hyper-V -Online -NoRestart
+    Install-WindowsFeature -Name Failover-Clustering
 } -Credential $Credentials
-$result | Out-GridView
-
-```
-
-![](./media/powershell06.png)
-
-### Task03 - Create Azure Resources
-
-Following script will simply create Resource Group and ARC Gateway (optional).
-
-```PowerShell
-$GatewayName="ALClus01-ArcGW"
-$ResourceGroupName="ALClus01-RG"
-$Location="eastus"
-
-#login to azure
-    #download Azure module
-    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
-    if (!(Get-InstalledModule -Name az.accounts -ErrorAction Ignore)){
-        Install-Module -Name Az.Accounts -Force 
-    }
-    #login using device authentication
-    Connect-AzAccount -UseDeviceAuthentication
-
-    #assuming new az.accounts module was used and it asked you what subscription to use - then correct subscription is selected for context
-    $Subscription=(Get-AzContext).Subscription
-
-    #install az resources module
-        if (!(Get-InstalledModule -Name az.resources -ErrorAction Ignore)){
-            Install-Module -Name az.resources -Force
-        }
-
-    #create resource group
-        if (-not(Get-AzResourceGroup -Name $ResourceGroupName -ErrorAction Ignore)){
-            New-AzResourceGroup -Name $ResourceGroupName -Location $location
-        }
-#region (Optional) configure ARC Gateway
-    #install az arcgateway module
-        if (!(Get-InstalledModule -Name az.arcgateway -ErrorAction Ignore)){
-            Install-Module -Name az.arcgateway -Force
-        }
-    #make sure "Microsoft.HybridCompute" is registered (and possibly other RPs)
-        Register-AzResourceProvider -ProviderNamespace "Microsoft.HybridCompute"
-        Register-AzResourceProvider -ProviderNamespace "Microsoft.GuestConfiguration"
-        Register-AzResourceProvider -ProviderNamespace "Microsoft.HybridConnectivity"
-        Register-AzResourceProvider -ProviderNamespace "Microsoft.AzureStackHCI"
-
-    #create GW
-    $ArcGWInfo=New-AzArcGateway -Name $GatewayName -ResourceGroupName $ResourceGroupName -Location $Location -SubscriptionID $Subscription.ID
-#endregion
-
-#generate variables for use in this window
-$SubscriptionID=$Subscription.ID
-$Region=$Location
-$TenantID=$Subscription.TenantID
-$ArcGatewayID=$ArcGWInfo.ID
-
-#output variables (so you can just copy it and have powershell code to create variables in another session or you can copy it to WebUI deployment)
-Write-Host -ForegroundColor Cyan @"
-    #Variables to copy
-    `$SubscriptionID=`"$($Subscription.ID)`"
-    `$ResourceGroupName=`"$ResourceGroupName`"
-    `$Region=`"$Location`"
-    `$TenantID=`"$($subscription.tenantID)`"
-    `$ArcGatewayID=`"$(($ArcGWInfo).ID)`"
-"@ 
-```
-
-![](./media/powershell07.png)
-
-![](./media/edge01.png)
 
 
-### Task04 - Create AD Prerequisites
+#Check servers version
+$ComputersInfo  = Invoke-Command -ComputerName $servers -ScriptBlock {
+    Get-ItemProperty -Path $using:RegistryPath
+} -Credential $Credentials
+$ComputersInfo | Select-Object PSComputerName,ProductName,DisplayVersion,UBR
 
-Simply run following PowerShell script to create objects
-
-> LCM = LifeCycle Management account. Account that will be used to domain join machines and create CAU account.
-
-```PowerShell
-$AsHCIOUName="OU=ALClus01,DC=Corp,DC=contoso,DC=com"
-$LCMUserName="ALClus01-LCMUser"
-$LCMPassword="LS1setup!LS1setup!"
-#Create LCM credentials
-$SecuredPassword = ConvertTo-SecureString $LCMPassword -AsPlainText -Force
-$LCMCredentials= New-Object System.Management.Automation.PSCredential ($LCMUserName,$SecuredPassword)
-
-#create objects in Active Directory
-    #install posh module for prestaging Active Directory
-    Install-PackageProvider -Name NuGet -Force
-    Install-Module AsHciADArtifactsPreCreationTool -Repository PSGallery -Force
-
-    #make sure active directory module and GPMC is installed
-    Install-WindowsFeature -Name RSAT-AD-PowerShell,GPMC
-
-    #populate objects
-    New-HciAdObjectsPreCreation -AzureStackLCMUserCredential $LCMCredentials -AsHciOUName $AsHCIOUName
-
-    #to check OU (and future cluster) in GUI install management tools
-    Install-WindowsFeature -Name "RSAT-ADDS","RSAT-Clustering"
-
-```
-
-![](./media/powershell08.png)
-
-### Task 05a - Connect nodes to Azure - WebUI
-
-As you now have all variables needed from Task03, you can proceed with navigating to WebUI on each node.
-
-In MSLab you can simply navigate to https://LTPNode1 and https://LTPNode2. In production environment you can either navigate to https://<serialnumber> or simply configure an IP address and navigate there. The webUI takes ~15 minutes to start after booting the servers.
-
-Log in with **Administrator/LS1setup!** and proceed with all three steps to register nodes to Azure.
-
-![](./media/edge01.png)
-
-![](./media/edge02.png)
-
-![](./media/edge03.png)
-
-![](./media/edge04.png)
-
-![](./media/edge05.png)
-
-![](./media/edge06.png)
-
-![](./media/edge08.png)
-
-![](./media/edge09.png)
-
-### Task 05b - Connect nodes to Azure - PowerShell
-
-Assuming you have still variables from Task03, you can continue with following PowerShell
-
-More info: https://learn.microsoft.com/en-us/azure/azure-local/deploy/deployment-arc-register-server-permissions?tabs=powershell
-
-```PowerShell
-#region install modules (latest ISO already contains modules, but does not hurt installing it)
-    #make sure nuget is installed on nodes
-    Invoke-Command -ComputerName $Servers -ScriptBlock {
-        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
-    } -Credential $Credentials
-
-    #make sure azshci.arcinstaller is installed on nodes
-    Invoke-Command -ComputerName $Servers -ScriptBlock {
-        Install-Module -Name azshci.arcinstaller -Force
-    } -Credential $Credentials
-
-    #make sure Az.Resources module is installed on nodes
-    Invoke-Command -ComputerName $Servers -ScriptBlock {
-        Install-Module -Name Az.Resources -Force
-    } -Credential $Credentials
-
-    #make sure az.accounts module is installed on nodes
-    Invoke-Command -ComputerName $Servers -ScriptBlock {
-        Install-Module -Name az.accounts -Force
-    } -Credential $Credentials
-
-    #make sure az.accounts module is installed on nodes
-    Invoke-Command -ComputerName $Servers -ScriptBlock {
-        Install-Module -Name Az.ConnectedMachine -Force
-    } -Credential $Credentials
-#endregion
-
-#Make sure resource providers are registered
-Register-AzResourceProvider -ProviderNamespace "Microsoft.HybridCompute"
-Register-AzResourceProvider -ProviderNamespace "Microsoft.GuestConfiguration"
-Register-AzResourceProvider -ProviderNamespace "Microsoft.HybridConnectivity"
-Register-AzResourceProvider -ProviderNamespace "Microsoft.AzureStackHCI"
-
-#deploy ARC Agent (with Arc Gateway, without proxy. For more examples visit https://learn.microsoft.com/en-us/azure/azure-local/deploy/deployment-arc-register-server-permissions?tabs=powershell)
-    $ARMtoken = (Get-AzAccessToken).Token
-    $id = (Get-AzContext).Account.Id
-    $Cloud="AzureCloud"
-
-    Invoke-Command -ComputerName $Servers -ScriptBlock {
-        Invoke-AzStackHciArcInitialization -SubscriptionID $using:SubscriptionID -ResourceGroup $using:ResourceGroupName -TenantID $using:TenantID -Cloud $using:Cloud -Region $Using:Location -ArmAccessToken $using:ARMtoken -AccountID $using:id -ArcGatewayID $using:ArcGatewayID
-    } -Credential $Credentials
- 
-```
-
-![](./media/powershell09.png)
-
-![](./media/edge09.png)
-
-
-### Task06 - Validation Prerequisites
-
-There are just few settings needed before sucessful validation for lab running in VMs
-
-    * Making sure password is complex enough
-    * Just one IP with Gateway (might change in future)
-    * Static IP Address (might change in future)
-
-Following PowerShell will make sure all is set
-
-```PowerShell
-#region and make sure password is long enough (12chars at least)
-    $NewPassword="LS1setup!LS1setup!"
+#region update all servers
     Invoke-Command -ComputerName $servers -ScriptBlock {
-        Set-LocalUser -Name Administrator -AccountNeverExpires -Password (ConvertTo-SecureString $Using:NewPassword -AsPlainText -Force)
+        New-PSSessionConfigurationFile -RunAsVirtualAccount -Path $env:TEMP\VirtualAccount.pssc
+        Register-PSSessionConfiguration -Name 'VirtualAccount' -Path $env:TEMP\VirtualAccount.pssc -Force
+    } -ErrorAction Ignore -Credential $Credentials
+    #sleep a bit
+    Start-Sleep 2
+    # Run Windows Update via ComObject.
+    Invoke-Command -ComputerName $servers -ConfigurationName 'VirtualAccount' -ScriptBlock {
+        $Searcher = New-Object -ComObject Microsoft.Update.Searcher
+        $SearchCriteriaAllUpdates = "IsInstalled=0 and DeploymentAction='Installation' or
+                                IsInstalled=0 and DeploymentAction='OptionalInstallation' or
+                                IsPresent=1 and DeploymentAction='Uninstallation' or
+                                IsInstalled=1 and DeploymentAction='Installation' and RebootRequired=1 or
+                                IsInstalled=0 and DeploymentAction='Uninstallation' and RebootRequired=1"
+        $SearchResult = $Searcher.Search($SearchCriteriaAllUpdates).Updates
+        if ($SearchResult.Count -gt 0){
+            $Session = New-Object -ComObject Microsoft.Update.Session
+            $Downloader = $Session.CreateUpdateDownloader()
+            $Downloader.Updates = $SearchResult
+            $Downloader.Download()
+            $Installer = New-Object -ComObject Microsoft.Update.Installer
+            $Installer.Updates = $SearchResult
+            $Result = $Installer.Install()
+            $Result
+        }
     } -Credential $Credentials
-    #create new credentials
-    $UserName="Administrator"
-    $SecuredPassword = ConvertTo-SecureString $NewPassword -AsPlainText -Force
-    $Credentials= New-Object System.Management.Automation.PSCredential ($UserName,$SecuredPassword)
-#endregion
-
-#region to sucessfully validate you need make sure there's just one GW
-    #make sure there is only one management NIC with IP address (setup is complaining about multiple gateways)
+    #remove temporary PSsession config
     Invoke-Command -ComputerName $servers -ScriptBlock {
-        Get-NetIPConfiguration | Where-Object IPV4defaultGateway | Get-NetAdapter | Sort-Object Name | Select-Object -Skip 1 | Set-NetIPInterface -Dhcp Disabled
-    } -Credential $Credentials
+        Unregister-PSSessionConfiguration -Name 'VirtualAccount'
+        Remove-Item -Path $env:TEMP\VirtualAccount.pssc
+    }  -Credential $Credentials
 #endregion
 
-#region Convert DHCP address to Static (since 2411 there's a check for static IP)
-    Invoke-Command -ComputerName $Servers -ScriptBlock {
-        $InterfaceAlias=(Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.IPAddress -NotLike "169*" -and $_.PrefixOrigin -eq "DHCP"}).InterfaceAlias
-        $IPConf=Get-NetIPConfiguration -InterfaceAlias $InterfaceAlias
-        $IPAddress=Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $InterfaceAlias
-        $IP=$IPAddress.IPAddress
-        $Index=$IPAddress.InterfaceIndex
-        $GW=$IPConf.IPv4DefaultGateway.NextHop
-        $Prefix=$IPAddress.PrefixLength
-        $DNSServers=@()
-        $ipconf.dnsserver | ForEach-Object {if ($_.addressfamily -eq 2){$DNSServers+=$_.ServerAddresses}}
-        Set-NetIPInterface -InterfaceIndex $Index -Dhcp Disabled
-        New-NetIPAddress -InterfaceIndex $Index -AddressFamily IPv4 -IPAddress $IP -PrefixLength $Prefix -DefaultGateway $GW -ErrorAction SilentlyContinue
-        Set-DnsClientServerAddress -InterfaceIndex $index -ServerAddresses $DNSServers
-    } -Credential $Credentials
-#endregion
- 
 ```
 
-### Task07 - Validation Prerequisites AXNodes
+#### Step 2 Install Dell Drivers (AX Nodes)
 
-#### Step 1 - Update Drivers
+The validation process later in the guide makes sure if you dont have default NIC driver. So you can either install all drivers, or just Mellanox/Intel NIC driver.
 
-The validation process just makes sure if you dont have default NIC driver. So you can either install all drivers, or just Mellanox/Intel NIC driver.
-
-Following example installs all drivers and in case you have newer drivers, it will downgrade. You can simply modify the code to just scan for compliance and display status.
+Following example installs all drivers and in case you have newer drivers, it will downgrade. You can simply modify the code to just scan for compliance and display status. This will also make your life easier if for some reason you updated to newer drivers than SBE. SBE would fail as firmware extension can't downgrade.
 
 ```PowerShell
 #region Dell AX Nodes
@@ -511,7 +318,280 @@ Following example installs all drivers and in case you have newer drivers, it wi
     #endregion
 ```
 
-#### Step 2 - Populate latest SBE package
+### Step 3 Restart servers to apply changes
+
+```PowerShell
+#region restart servers to apply changes
+    Restart-Computer -ComputerName $Servers -Credential $Credentials -WsmanAuthentication Negotiate -Wait -For PowerShell
+    Start-Sleep 20 #Failsafe as Hyper-V needs 2 reboots and sometimes it happens, that during the first reboot the restart-computer evaluates the machine is up
+    #make sure computers are restarted
+    Foreach ($Server in $Servers){
+        do{$Test= Test-NetConnection -ComputerName $Server -CommonTCPPort WINRM}while ($test.TcpTestSucceeded -eq $False)
+    }
+#endregion
+
+#Check servers version again
+$ComputersInfo  = Invoke-Command -ComputerName $servers -ScriptBlock {
+    Get-ItemProperty -Path $using:RegistryPath
+} -Credential $Credentials
+$ComputersInfo | Select-Object PSComputerName,ProductName,DisplayVersion,UBR
+
+```
+
+### Task03 - Validate environment using Envornent Checker tool
+
+* about: https://learn.microsoft.com/en-in/azure/azure-local/manage/use-environment-checker?tabs=connectivity
+
+#### Step 1 Run connectivity checker
+
+Since we already have credentials and TrustedHosts configured in Powershel from Task01, we can run following code
+
+> for some reason I was not able to run it using sessions as it complained about not being able to create PSDrive
+
+```PowerShell
+$result=Invoke-Command -ComputerName $Servers -Scriptblock {
+    Install-Module PowerShellGet -AllowClobber -Force
+    Install-Module -Name AzStackHci.EnvironmentChecker -Force
+    Invoke-AzStackHciConnectivityValidation -PassThru
+} -Credential $Credentials
+$result | Out-GridView
+
+```
+
+![](./media/powershell06.png)
+
+### Task04 - Create Azure Resources
+
+Following script will simply create Resource Group and ARC Gateway (optional).
+
+```PowerShell
+$GatewayName="ALClus01-ArcGW"
+$ResourceGroupName="ALClus01-RG"
+$Location="eastus"
+
+#login to azure
+    #download Azure module
+    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+    if (!(Get-InstalledModule -Name az.accounts -ErrorAction Ignore)){
+        Install-Module -Name Az.Accounts -Force 
+    }
+    #login using device authentication
+    Connect-AzAccount -UseDeviceAuthentication
+
+    #assuming new az.accounts module was used and it asked you what subscription to use - then correct subscription is selected for context
+    $Subscription=(Get-AzContext).Subscription
+
+    #install az resources module
+        if (!(Get-InstalledModule -Name az.resources -ErrorAction Ignore)){
+            Install-Module -Name az.resources -Force
+        }
+
+    #create resource group
+        if (-not(Get-AzResourceGroup -Name $ResourceGroupName -ErrorAction Ignore)){
+            New-AzResourceGroup -Name $ResourceGroupName -Location $location
+        }
+#region (Optional) configure ARC Gateway
+    #install az arcgateway module
+        if (!(Get-InstalledModule -Name az.arcgateway -ErrorAction Ignore)){
+            Install-Module -Name az.arcgateway -Force
+        }
+    #make sure "Microsoft.HybridCompute" is registered (and possibly other RPs)
+        Register-AzResourceProvider -ProviderNamespace "Microsoft.HybridCompute"
+        Register-AzResourceProvider -ProviderNamespace "Microsoft.GuestConfiguration"
+        Register-AzResourceProvider -ProviderNamespace "Microsoft.HybridConnectivity"
+        Register-AzResourceProvider -ProviderNamespace "Microsoft.AzureStackHCI"
+
+    #create GW
+    $ArcGWInfo=New-AzArcGateway -Name $GatewayName -ResourceGroupName $ResourceGroupName -Location $Location -SubscriptionID $Subscription.ID
+#endregion
+
+#generate variables for use in this window
+$SubscriptionID=$Subscription.ID
+$Region=$Location
+$TenantID=$Subscription.TenantID
+$ArcGatewayID=$ArcGWInfo.ID
+
+#output variables (so you can just copy it and have powershell code to create variables in another session or you can copy it to WebUI deployment)
+Write-Host -ForegroundColor Cyan @"
+    #Variables to copy
+    `$SubscriptionID=`"$($Subscription.ID)`"
+    `$ResourceGroupName=`"$ResourceGroupName`"
+    `$Region=`"$Location`"
+    `$TenantID=`"$($subscription.tenantID)`"
+    `$ArcGatewayID=`"$(($ArcGWInfo).ID)`"
+"@ 
+```
+
+![](./media/powershell07.png)
+
+![](./media/edge01.png)
+
+
+### Task05 - Create AD Prerequisites
+
+Simply run following PowerShell script to create objects
+
+> LCM = LifeCycle Management account. Account that will be used to domain join machines and create CAU account.
+
+```PowerShell
+$AsHCIOUName="OU=ALClus01,DC=Corp,DC=contoso,DC=com"
+$LCMUserName="ALClus01-LCMUser"
+$LCMPassword="LS1setup!LS1setup!"
+#Create LCM credentials
+$SecuredPassword = ConvertTo-SecureString $LCMPassword -AsPlainText -Force
+$LCMCredentials= New-Object System.Management.Automation.PSCredential ($LCMUserName,$SecuredPassword)
+
+#create objects in Active Directory
+    #install posh module for prestaging Active Directory
+    Install-PackageProvider -Name NuGet -Force
+    Install-Module AsHciADArtifactsPreCreationTool -Repository PSGallery -Force
+
+    #make sure active directory module and GPMC is installed
+    Install-WindowsFeature -Name RSAT-AD-PowerShell,GPMC
+
+    #populate objects
+    New-HciAdObjectsPreCreation -AzureStackLCMUserCredential $LCMCredentials -AsHciOUName $AsHCIOUName
+
+    #to check OU (and future cluster) in GUI install management tools
+    Install-WindowsFeature -Name "RSAT-ADDS","RSAT-Clustering"
+
+```
+
+![](./media/powershell08.png)
+
+### Task 06a - Connect nodes to Azure - WebUI
+
+As you now have all variables needed from Task03, you can proceed with navigating to WebUI on each node.
+
+In MSLab you can simply navigate to https://LTPNode1 and https://LTPNode2. In production environment you can either navigate to https://<serialnumber> or simply configure an IP address and navigate there. The webUI takes ~15 minutes to start after booting the servers.
+
+Log in with **Administrator/LS1setup!** and proceed with all three steps to register nodes to Azure.
+
+![](./media/edge01.png)
+
+![](./media/edge02.png)
+
+![](./media/edge03.png)
+
+![](./media/edge04.png)
+
+![](./media/edge05.png)
+
+![](./media/edge06.png)
+
+![](./media/edge08.png)
+
+![](./media/edge09.png)
+
+### Task 06b - Connect nodes to Azure - PowerShell
+
+Assuming you have still variables from Task03, you can continue with following PowerShell
+
+More info: https://learn.microsoft.com/en-us/azure/azure-local/deploy/deployment-arc-register-server-permissions?tabs=powershell
+
+```PowerShell
+#region install modules (latest ISO already contains modules, but does not hurt installing it)
+    #make sure nuget is installed on nodes
+    Invoke-Command -ComputerName $Servers -ScriptBlock {
+        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+    } -Credential $Credentials
+
+    #make sure azshci.arcinstaller is installed on nodes
+    Invoke-Command -ComputerName $Servers -ScriptBlock {
+        Install-Module -Name azshci.arcinstaller -Force
+    } -Credential $Credentials
+
+    #make sure Az.Resources module is installed on nodes
+    Invoke-Command -ComputerName $Servers -ScriptBlock {
+        Install-Module -Name Az.Resources -Force
+    } -Credential $Credentials
+
+    #make sure az.accounts module is installed on nodes
+    Invoke-Command -ComputerName $Servers -ScriptBlock {
+        Install-Module -Name az.accounts -Force
+    } -Credential $Credentials
+
+    #make sure az.accounts module is installed on nodes
+    Invoke-Command -ComputerName $Servers -ScriptBlock {
+        Install-Module -Name Az.ConnectedMachine -Force
+    } -Credential $Credentials
+#endregion
+
+#Make sure resource providers are registered
+Register-AzResourceProvider -ProviderNamespace "Microsoft.HybridCompute"
+Register-AzResourceProvider -ProviderNamespace "Microsoft.GuestConfiguration"
+Register-AzResourceProvider -ProviderNamespace "Microsoft.HybridConnectivity"
+Register-AzResourceProvider -ProviderNamespace "Microsoft.AzureStackHCI"
+
+#deploy ARC Agent (with Arc Gateway, without proxy. For more examples visit https://learn.microsoft.com/en-us/azure/azure-local/deploy/deployment-arc-register-server-permissions?tabs=powershell)
+    $ARMtoken = (Get-AzAccessToken).Token
+    $id = (Get-AzContext).Account.Id
+    $Cloud="AzureCloud"
+
+    Invoke-Command -ComputerName $Servers -ScriptBlock {
+        Invoke-AzStackHciArcInitialization -SubscriptionID $using:SubscriptionID -ResourceGroup $using:ResourceGroupName -TenantID $using:TenantID -Cloud $using:Cloud -Region $Using:Location -ArmAccessToken $using:ARMtoken -AccountID $using:id -ArcGatewayID $using:ArcGatewayID
+    } -Credential $Credentials
+ 
+```
+
+![](./media/powershell09.png)
+
+![](./media/edge09.png)
+
+
+### Task07 - Validation Prerequisites
+
+There are just few settings needed before sucessful validation for lab running in VMs
+
+    * Making sure password is complex enough
+    * Just one IP with Gateway (might change in future)
+    * Static IP Address (might change in future)
+
+Following PowerShell will make sure all is set
+
+```PowerShell
+#region and make sure password is long enough (12chars at least)
+    $NewPassword="LS1setup!LS1setup!"
+    Invoke-Command -ComputerName $servers -ScriptBlock {
+        Set-LocalUser -Name Administrator -AccountNeverExpires -Password (ConvertTo-SecureString $Using:NewPassword -AsPlainText -Force)
+    } -Credential $Credentials
+    #create new credentials
+    $UserName="Administrator"
+    $SecuredPassword = ConvertTo-SecureString $NewPassword -AsPlainText -Force
+    $Credentials= New-Object System.Management.Automation.PSCredential ($UserName,$SecuredPassword)
+#endregion
+
+#region to sucessfully validate you need make sure there's just one GW
+    #make sure there is only one management NIC with IP address (setup is complaining about multiple gateways)
+    Invoke-Command -ComputerName $servers -ScriptBlock {
+        Get-NetIPConfiguration | Where-Object IPV4defaultGateway | Get-NetAdapter | Sort-Object Name | Select-Object -Skip 1 | Set-NetIPInterface -Dhcp Disabled
+    } -Credential $Credentials
+#endregion
+
+#region Convert DHCP address to Static (since 2411 there's a check for static IP)
+    Invoke-Command -ComputerName $Servers -ScriptBlock {
+        $InterfaceAlias=(Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.IPAddress -NotLike "169*" -and $_.PrefixOrigin -eq "DHCP"}).InterfaceAlias
+        $IPConf=Get-NetIPConfiguration -InterfaceAlias $InterfaceAlias
+        $IPAddress=Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $InterfaceAlias
+        $IP=$IPAddress.IPAddress
+        $Index=$IPAddress.InterfaceIndex
+        $GW=$IPConf.IPv4DefaultGateway.NextHop
+        $Prefix=$IPAddress.PrefixLength
+        $DNSServers=@()
+        $ipconf.dnsserver | ForEach-Object {if ($_.addressfamily -eq 2){$DNSServers+=$_.ServerAddresses}}
+        Set-NetIPInterface -InterfaceIndex $Index -Dhcp Disabled
+        New-NetIPAddress -InterfaceIndex $Index -AddressFamily IPv4 -IPAddress $IP -PrefixLength $Prefix -DefaultGateway $GW -ErrorAction SilentlyContinue
+        Set-DnsClientServerAddress -InterfaceIndex $index -ServerAddresses $DNSServers
+    } -Credential $Credentials
+#endregion
+ 
+```
+
+### Task08 - Validation Prerequisites AXNodes
+
+One prerequisite is to install NIC Drivers, but we already covered this in Task02 where servers were updated
+
+#### Step 1 - Populate latest SBE package
 
 ```PowerShell
     #region populate SBE package
@@ -557,7 +637,7 @@ Following example installs all drivers and in case you have newer drivers, it wi
     #endregion
 ```
 
-#### Step 3 - Exclude iDRAC adapters from cluster networks
+#### Step 2 - Exclude iDRAC adapters from cluster networks
 
 ```PowerShell
     #region exclude iDRAC adapters from cluster networks (as validation was failing in latest versions)
@@ -570,7 +650,7 @@ Following example installs all drivers and in case you have newer drivers, it wi
     #endregion
 ```
 
-#### Step 4 - Clear data disks
+#### Step 3 - Clear data disks
 
 In case disks were used before, it might be useful to wipe it.
 
@@ -588,7 +668,7 @@ In case disks were used before, it might be useful to wipe it.
 
 ```
 
-### Task 08 - Deploy Azure Stack from Azure Portal
+### Task 09 - Deploy Azure Stack from Azure Portal
 
 Use values below for virtual cluster
 
