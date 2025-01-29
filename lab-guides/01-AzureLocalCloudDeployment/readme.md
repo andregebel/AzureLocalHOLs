@@ -308,16 +308,8 @@ Following example installs all drivers and in case you have newer drivers, it wi
             }
         }
         $Sessions | Remove-PSSession
-
-        #restart servers to finish Installation
-            Restart-Computer -ComputerName $Servers -Credential $Credentials -WsmanAuthentication Negotiate -Wait -For PowerShell
-            Start-Sleep 20 #Failsafe as Hyper-V needs 2 reboots and sometimes it happens, that during the first reboot the restart-computer evaluates the machine is up
-            #make sure computers are restarted
-            Foreach ($Server in $Servers){
-                do{$Test= Test-NetConnection -ComputerName $Server -CommonTCPPort WINRM}while ($test.TcpTestSucceeded -eq $False)
-            }
-
-    #endregion
+#endregion
+ 
 ```
 
 #### Step 3 Restart servers to apply changes
@@ -337,7 +329,7 @@ $ComputersInfo  = Invoke-Command -ComputerName $servers -ScriptBlock {
     Get-ItemProperty -Path $using:RegistryPath
 } -Credential $Credentials
 $ComputersInfo | Select-Object PSComputerName,ProductName,DisplayVersion,UBR
-
+ 
 ```
 
 ### Task03 - Validate environment using Envornent Checker tool
