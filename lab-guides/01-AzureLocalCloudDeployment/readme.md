@@ -334,7 +334,7 @@ $ComputersInfo | Select-Object PSComputerName,ProductName,DisplayVersion,UBR
 
 * about: https://learn.microsoft.com/en-in/azure/azure-local/manage/use-environment-checker?tabs=connectivity
 
-Since we already have credentials and TrustedHosts configured in Powershel from Task01, we can run following code
+Since we already have credentials and TrustedHosts configured in Powershel from Task01, we can run the following code
 
 > for some reason I was not able to run it using sessions as it complained about not being able to create PSDrive
 
@@ -381,6 +381,7 @@ $Location="eastus"
             New-AzResourceGroup -Name $ResourceGroupName -Location $location
         }
 #region (Optional) configure ARC Gateway
+<#
     #install az arcgateway module
         if (!(Get-InstalledModule -Name az.arcgateway -ErrorAction Ignore)){
             Install-Module -Name az.arcgateway -Force
@@ -393,6 +394,7 @@ $Location="eastus"
 
     #create GW
     $ArcGWInfo=New-AzArcGateway -Name $GatewayName -ResourceGroupName $ResourceGroupName -Location $Location -SubscriptionID $Subscription.ID
+#>
 #endregion
 
 #generate variables for use in this window
@@ -419,7 +421,7 @@ Write-Host -ForegroundColor Cyan @"
 
 ### Task05 - Create AD Prerequisites
 
-Simply run following PowerShell script to create objects
+Simply run the following PowerShell script to create objects
 
 > LCM = LifeCycle Management account. Account that will be used to domain join machines and create CAU account.
 
@@ -519,7 +521,7 @@ Register-AzResourceProvider -ProviderNamespace "Microsoft.AzureStackHCI"
     $Cloud="AzureCloud"
 
     Invoke-Command -ComputerName $Servers -ScriptBlock {
-        Invoke-AzStackHciArcInitialization -SubscriptionID $using:SubscriptionID -ResourceGroup $using:ResourceGroupName -TenantID $using:TenantID -Cloud $using:Cloud -Region $Using:Location -ArmAccessToken $using:ARMtoken -AccountID $using:id -ArcGatewayID $using:ArcGatewayID
+        Invoke-AzStackHciArcInitialization -SubscriptionID $using:SubscriptionID -ResourceGroup $using:ResourceGroupName -TenantID $using:TenantID -Cloud $using:Cloud -Region $Using:Location -ArmAccessToken $using:ARMtoken -AccountID $using:id #-ArcGatewayID $using:ArcGatewayID
     } -Credential $Credentials
  
 ```
