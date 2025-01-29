@@ -17,13 +17,14 @@
 
 ## About the lab
 
-In this lab you will deploy 2 node Azure Stack HCI cluster using [cloud deployment](https://learn.microsoft.com/en-us/azure-stack/hci/whats-new#cloud-based-deployment). Since this is public preview, the process will likely to change as there is room to improve.
-
-The lab is based on [AzSHCI and Cloud Based Deployment](https://github.com/microsoft/MSLab/tree/master/Scenarios/AzSHCI%20and%20Cloud%20Based%20Deployment) MSLab scenario.
+In this lab you will deploy 2 node Azure Stack HCI cluster using [cloud deployment](https://learn.microsoft.com/en-us/azure-stack/hci/whats-new#cloud-based-deployment).
 
 You can also deploy physical machines with [MDT](../../admin-guides/03-DeployPhysicalServersWithMSLab/readme.md). In this guide you will also see notes for physical environment.
 
 You can deploy physical machines with simple click-next-next from ISO. Make sure correct OS disk is selected and if DHCP is not available, configure an IP address and rename computers.
+
+[Latest ISO](https://aka.ms/HCIReleaseImage) contains web interface to register servers to Azure. It also contains all Az PowerShell modules, so it's not necessary to upload it into nodes.
+[Older ISO](https://software-static.download.prss.microsoft.com/dbazure/888969d5-f34g-4e03-ac9d-1f9786c66749/25398.469.231004-1141.zn_release_svc_refresh_SERVERAZURESTACKHCICOR_OEMRET_x64FRE_en-us.iso) does not contain web and PowerShell modules.
 
 > Cloud Deployment is now supported on AX nodes.
 
@@ -37,6 +38,7 @@ You can deploy physical machines with simple click-next-next from ISO. Make sure
 
 * Note: this lab uses ~50GB RAM. To reduce amount of RAM, you would need to reduce number of nodes.
 
+
 ## LabConfig
 
 Below LabConfig will deploy 4 nodes for Azure Stack HCI 23H2 that are not domain joined.
@@ -48,7 +50,7 @@ $LabConfig=@{AllowedVLANs="1-10,711-719" ; DomainAdminName='LabAdmin'; AdminPass
 
 #Azure Stack HCI 23H2
 #labconfig will not domain join VMs
-1..2 | ForEach-Object {$LABConfig.VMs += @{ VMName = "ASNode$_" ; Configuration = 'S2D' ; ParentVHD = 'AzSHCI23H2_G2.vhdx' ; HDDNumber = 4 ; HDDSize= 1TB ; MemoryStartupBytes= 24GB; VMProcessorCount="MAX" ; vTPM=$true ; Unattend="NoDjoin" ; NestedVirt=$true }}
+1..2 | ForEach-Object {$LABConfig.VMs += @{ VMName = "ALNode$_" ; Configuration = 'S2D' ; ParentVHD = 'AzSHCI23H2_G2.vhdx' ; HDDNumber = 4 ; HDDSize= 1TB ; MemoryStartupBytes= 24GB; VMProcessorCount="MAX" ; vTPM=$true ; Unattend="NoDjoin" ; NestedVirt=$true }}
 
 #Windows Admin Center in GW mode
 $LabConfig.VMs += @{ VMName = 'WACGW' ; ParentVHD = 'Win2025Core_G2.vhdx'; MGMTNICs=1}
@@ -79,12 +81,8 @@ This task will be performed in elevated powershell window in Management machine
 > you can also notice, that there is an account for deployment being created. It will be used once 
 
 ```PowerShell
-$AsHCIOUName="OU=ASClus01,DC=Corp,DC=contoso,DC=com"
-#$Servers="ASNode1","ASNode2"
-#$DomainFQDN=$env:USERDNSDOMAIN
-#$ClusterName="ASClus01"
-#$Prefix="ASClus01"
-$LCMUserName="ASClus01-LCMUser"
+$AsHCIOUName="OU=ALClus01,DC=Corp,DC=contoso,DC=com"
+$LCMUserName="ALClus01-LCMUser"
 $LCMPassword="LS1setup!LS1setup!"
 $SecuredPassword = ConvertTo-SecureString $LCMPassword -AsPlainText -Force
 $LCMCredentials= New-Object System.Management.Automation.PSCredential ($LCMUserName,$SecuredPassword)
@@ -95,8 +93,6 @@ Install-Module AsHciADArtifactsPreCreationTool -Repository PSGallery -Force
  
 ```
 **Step 2** Populate objects into Active Directory
-
-> note: since 2402 release is just OU and LCM user deployed and GPO inheritance blocked on OU
 
 ```PowerShell
     #make sure active directory module and GPMC is installed
@@ -130,7 +126,7 @@ Keep the PowerShell window open for the next task
 > Note: you might need to disable WAM https://learn.microsoft.com/en-us/powershell/azure/authenticate-interactive?view=azps-12.0.0#disable-wam as tenantID has to be specified by default (Update-AzConfig -EnableLoginByWam $false)
 
 ```PowerShell
-$ResourceGroupName="ASClus01-RG"
+$ResourceGroupName="ALClus01-RG"
 $Location="eastus"
 
 #login to azure
@@ -196,8 +192,8 @@ This task will install Arc agent, Arc extensions and will set RBAC roles to ARC 
 > In this step we will also configure trusted hosts to be able to send credentials to non-domain joined machines
 
 ```PowerShell
-$Servers="ASNode1","ASNode2"
-$ResourceGroupName="ASClus01-RG"
+$Servers="ALNode1","ALNode2"
+$ResourceGroupName="ALClus01-RG"
 $TenantID=(Get-AzContext).Tenant.ID
 $SubscriptionID=(Get-AzContext).Subscription.ID
 $Location="eastus"
@@ -209,7 +205,7 @@ $Password="LS1setup!"
 $SecuredPassword = ConvertTo-SecureString $password -AsPlainText -Force
 $Credentials= New-Object System.Management.Automation.PSCredential ($UserName,$SecuredPassword)
 
-#configure trusted hosts to be able to communicate with servers (not secure)
+#configure trusted hosts to be able to communicate with servers
 $TrustedHosts=@()
 $TrustedHosts+=$Servers
 Set-Item WSMan:\localhost\Client\TrustedHosts -Value $($TrustedHosts -join ',') -Force
@@ -532,7 +528,7 @@ Register-AzResourceProvider -ProviderNamespace "Microsoft.AzureStackHCI"
 First you need to disable Timesync from Hyper-V. Run following command on Hyper-V Host! (applies to nested environment only)
 
 ```PowerShell
-Get-VM *ASNode* | Disable-VMIntegrationService -Name "Time Synchronization"
+Get-VM *ALNode* | Disable-VMIntegrationService -Name "Time Synchronization"
 
 ```
 
@@ -556,7 +552,7 @@ Invoke-Command -ComputerName $servers -ScriptBlock {
 
 ![](./media/powershell09.png)
 
-**Step 3** Configure current user to be Key Vault Administrator on ASClus01 resource group
+**Step 3** Configure current user to be Key Vault Administrator on ALClus01 resource group
 
 ```PowerShell
 #add key vault admin of current user to Resource Group (It can be also done in Deploy Azure Stack HCI wizard)
@@ -682,8 +678,8 @@ foreach ($iDRAC in $iDRACs){
 
 ```
 Basics:
-    Resource Group: ASClus-01-RG
-    ClusterName:    ASClus01
+    Resource Group: ALClus-01-RG
+    ClusterName:    ALClus01
     Keyvaultname:   <Just generate new>
 
 Configuration:
@@ -708,15 +704,15 @@ Networking
     DNS Server:                 10.0.0.1
 
 Management
-    Custom location name:       ASClus01CustomLocation (default)\
+    Custom location name:       ALClus01CustomLocation (default)\
     Azure storage account name: <just generate new>
 
     Domain:                     corp.contoso.com
-    Computer name prefix:       ASClus01
-    OU:                         OU=ASClus01,DC=Corp,DC=contoso,DC=com
+    Computer name prefix:       ALClus01
+    OU:                         OU=ALClus01,DC=Corp,DC=contoso,DC=com
 
     Deployment account:
-        Username:               ASClus01-LCMUser
+        Username:               ALClus01-LCMUser
         Password:               LS1setup!LS1setup!
 
     Local Administrator

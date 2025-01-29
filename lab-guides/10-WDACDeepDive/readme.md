@@ -174,7 +174,7 @@ Invoke-Command -ComputerName $ClusterName -ScriptBlock {
 
 ![](./media/powershell08.png)
 
-As you can see, this application publisher is InfluxData, Inc.
+As you can see, this application publisher is "InfluxData, Inc".
 
 ### Create a code integrity policy file and explore output
 
@@ -198,9 +198,9 @@ Invoke-Command -ComputerName $ClusterName -ScriptBlock {
 
 [Telegraf policy](./media/Telegraf-policy.xml)
 
-### Now you can simply add policy
+### Now you can add policy
 
-Next just add it into supplemental policy. To add policy you either have to do it from the node, or you need to use [CredSSP](https://github.com/DellGEOS/AzureLocalHOLs/tree/main/tips&tricks/11-WS2025CredSSP) be able to send to send credentials to another node.
+Next just add it into supplemental policy. To add policy you either have to do it from the node, or you need to use [CredSSP](https://github.com/DellGEOS/AzureLocalHOLs/tree/main/tips&tricks/11-WS2025CredSSP) to be able to send credentials to another node.
 
 ```PowerShell
 $ClusterName="AXClus02"

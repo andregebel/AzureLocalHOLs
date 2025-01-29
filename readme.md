@@ -16,7 +16,7 @@ Guides focused at how to deploy and operate labs
 Guides focused at deploying and operation of Azure Local Clusters
 
 * [01a Deploy Azure Local 23H2 using Cloud Based Deployment](lab-guides/01a-DeployAzureStackHCICluster-CloudBasedDeployment/)
-* [01b Deploy Azure Local 23H2 using new WebUI (preview)](lab-guides/01b-DeployAzureStackHCICluster-WebUI/)
+* [01b Deploy Azure Local 23H2 using new WebUI](lab-guides/01b-DeployAzureStackHCICluster-WebUI/)
 * [02 Test Azure Local performance with VMFleet](lab-guides/02-TestPerformanceWithVMFleet/)
 * [03 Testing Windows Server 2025](lab-guides/03-TestingWindowsServer2025/)
 * [04 Testing Logical Networks in Azure Local 23H2](lab-guides/04-TestingLogicalNetworks/)
