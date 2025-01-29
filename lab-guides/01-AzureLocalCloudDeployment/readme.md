@@ -342,12 +342,15 @@ Register-AzResourceProvider -ProviderNamespace "Microsoft.AzureStackHCI"
  
 ```
 
+![](./media/powershell09.png)
+
 ![](./media/edge09.png)
 
 
 ### Task06 - Validation Prerequisites
 
 There are just few settings needed before sucessful validation for lab running in VMs
+
     * Making sure password is complex enough
     * Just one IP with Gateway (might change in future)
     * Static IP Address (might change in future)
