@@ -12,22 +12,24 @@
             - [Step 1 Test name resulution works with simple ping](#step-1-test-name-resulution-works-with-simple-ping)
             - [Step 2 Check WinRM connectivity](#step-2-check-winrm-connectivity)
             - [Step 3 Connect to servers using WinRM](#step-3-connect-to-servers-using-winrm)
-        - [Task02 - Validate environment using Envornent Checker tool](#task02---validate-environment-using-envornent-checker-tool)
+        - [Task02 - Install updates and features](#task02---install-updates-and-features)
+            - [Step 1 Install server features, and updates](#step-1-install-server-features-and-updates)
+            - [Step 2 Install Dell Drivers AX Nodes](#step-2-install-dell-drivers-ax-nodes)
+        - [Step 3 Restart servers to apply changes](#step-3-restart-servers-to-apply-changes)
+        - [Task03 - Validate environment using Envornent Checker tool](#task03---validate-environment-using-envornent-checker-tool)
             - [Step 1 Run connectivity checker](#step-1-run-connectivity-checker)
-        - [Task03 - Create Azure Resources](#task03---create-azure-resources)
-        - [Task04 - Create AD Prerequisites](#task04---create-ad-prerequisites)
-        - [Task 05a - Connect nodes to Azure - WebUI](#task-05a---connect-nodes-to-azure---webui)
-        - [Task 05b - Connect nodes to Azure - PowerShell](#task-05b---connect-nodes-to-azure---powershell)
-        - [Task06 - Validation Prerequisites](#task06---validation-prerequisites)
-        - [Task07 - Validation Prerequisites AXNodes](#task07---validation-prerequisites-axnodes)
-            - [Step 1 - Update Drivers](#step-1---update-drivers)
-            - [Step 2 - Populate latest SBE package](#step-2---populate-latest-sbe-package)
-            - [Step 3 - Exclude iDRAC adapters from cluster networks](#step-3---exclude-idrac-adapters-from-cluster-networks)
-            - [Step 4 - Clear data disks](#step-4---clear-data-disks)
-        - [Task 08 - Deploy Azure Stack from Azure Portal](#task-08---deploy-azure-stack-from-azure-portal)
+        - [Task04 - Create Azure Resources](#task04---create-azure-resources)
+        - [Task05 - Create AD Prerequisites](#task05---create-ad-prerequisites)
+        - [Task 06a - Connect nodes to Azure - WebUI](#task-06a---connect-nodes-to-azure---webui)
+        - [Task 06b - Connect nodes to Azure - PowerShell](#task-06b---connect-nodes-to-azure---powershell)
+        - [Task07 - Validation Prerequisites](#task07---validation-prerequisites)
+        - [Task08 - Validation Prerequisites AXNodes](#task08---validation-prerequisites-axnodes)
+            - [Step 1 - Populate latest SBE package](#step-1---populate-latest-sbe-package)
+            - [Step 2 - Exclude iDRAC adapters from cluster networks](#step-2---exclude-idrac-adapters-from-cluster-networks)
+            - [Step 3 - Clear data disks](#step-3---clear-data-disks)
+        - [Task 09 - Deploy Azure Stack from Azure Portal](#task-09---deploy-azure-stack-from-azure-portal)
 
 <!-- /TOC -->
-
 
 ## About the lab
 
