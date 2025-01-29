@@ -9,7 +9,7 @@
         - [NTP Prerequisite Virtual Lab](#ntp-prerequisite-virtual-lab)
     - [The Lab](#the-lab)
         - [Task01 - Validate connectivity to servers](#task01---validate-connectivity-to-servers)
-            - [Step 1 Test name resulution works with simple ping](#step-1-test-name-resulution-works-with-simple-ping)
+            - [Step 1 Test name resolution works with simple ping](#step-1-test-name-resolution-works-with-simple-ping)
             - [Step 2 Check WinRM connectivity](#step-2-check-winrm-connectivity)
             - [Step 3 Connect to servers using WinRM](#step-3-connect-to-servers-using-winrm)
         - [Task02 - Install updates and features](#task02---install-updates-and-features)
@@ -97,7 +97,7 @@ Get-VM *ALNode* | Disable-VMIntegrationService -Name "Time Synchronization"
 
 ### Task01 - Validate connectivity to servers
 
-#### Step 1 Test name resulution works with simple ping
+#### Step 1 Test name resolution works with simple ping
 
 > If name resolution does not work, simply add IPs to hosts file  you can even use [Host File Editor](https://learn.microsoft.com/en-us/windows/powertoys/hosts-file-editor)
 
