@@ -312,6 +312,10 @@ Following example installs all drivers and in case you have newer drivers, it wi
  
 ```
 
+![](./media/powershell10.png)
+
+![](./media/powershell11.png)
+
 #### Step 3 Restart servers to apply changes
 
 ```PowerShell
@@ -332,11 +336,13 @@ $ComputersInfo | Select-Object PSComputerName,ProductName,DisplayVersion,UBR
  
 ```
 
+![](./media/powershell13.png)
+
 ### Task03 - Validate environment using Environment Checker tool
 
 * about: https://learn.microsoft.com/en-in/azure/azure-local/manage/use-environment-checker?tabs=connectivity
 
-Since we already have credentials and TrustedHosts configured in Powershel from Task01, we can run the following code
+Since we already have credentials and TrustedHosts configured in Powershell from Task01, we can run the following code
 
 > for some reason I was not able to run it using sessions as it complained about not being able to create PSDrive
 
