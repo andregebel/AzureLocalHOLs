@@ -25,6 +25,7 @@
             - [Step 1 - Populate latest SBE package AXNodes only](#step-1---populate-latest-sbe-package-axnodes-only)
             - [Step 2 - Exclude iDRAC adapters from cluster networks](#step-2---exclude-idrac-adapters-from-cluster-networks)
             - [Step 3 - Clear data disks](#step-3---clear-data-disks)
+            - [Step 4 - Reboot iDRAC if needed](#step-4---reboot-idrac-if-needed)
         - [Task 09 - Deploy Azure Local from Azure Portal](#task-09---deploy-azure-local-from-azure-portal)
 
 <!-- /TOC -->
@@ -348,6 +349,7 @@ Since we already have credentials and TrustedHosts configured in Powershell from
 
 ```PowerShell
 $result=Invoke-Command -ComputerName $Servers -Scriptblock {
+    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
     Install-Module PowerShellGet -AllowClobber -Force
     Install-Module -Name AzStackHci.EnvironmentChecker -Force
     Invoke-AzStackHciConnectivityValidation -PassThru
@@ -615,8 +617,8 @@ One prerequisite is to install NIC Drivers, but we already covered this in Task0
 
             #Transfer to servers
             $Sessions=New-PSSession -ComputerName $Servers -Credential $Credentials
-            foreach ($Session in $Session){
-                Copy-Item -Path $env:userprofile\Downloads\$FileName -Destination c:\users\$UserName\downloads\ -ToSession $Session
+            foreach ($Session in $Sessions){
+                Copy-Item -Path $env:userprofile\Downloads\$FileName -Destination c:\users\$UserName\Downloads\ -ToSession $Session
             }
 
         Invoke-Command -ComputerName $Servers -scriptblock {
@@ -640,14 +642,13 @@ One prerequisite is to install NIC Drivers, but we already covered this in Task0
 #### Step 2 - Exclude iDRAC adapters from cluster networks
 
 ```PowerShell
-    #region exclude iDRAC adapters from cluster networks (as validation was failing in latest versions)
-        Invoke-Command -computername $Servers -scriptblock {
-            New-Item -Path HKLM:\system\currentcontrolset\services\clussvc\parameters
-            New-ItemProperty -Path HKLM:\system\currentcontrolset\services\clussvc\parameters -Name ExcludeAdaptersByDescription -Value "Remote NDIS Compatible Device"
-            #Get-ItemProperty -Path HKLM:\system\currentcontrolset\services\clussvc\parameters -Name ExcludeAdaptersByDescription | Format-List ExcludeAdaptersByDescription
-        } -Credential $Credentials
-        
-    #endregion
+#region exclude iDRAC adapters from cluster networks (as validation was failing in latest versions)
+    Invoke-Command -computername $Servers -scriptblock {
+        New-Item -Path HKLM:\system\currentcontrolset\services\clussvc\parameters
+        New-ItemProperty -Path HKLM:\system\currentcontrolset\services\clussvc\parameters -Name ExcludeAdaptersByDescription -Value "Remote NDIS Compatible Device"
+        #Get-ItemProperty -Path HKLM:\system\currentcontrolset\services\clussvc\parameters -Name ExcludeAdaptersByDescription | Format-List ExcludeAdaptersByDescription
+    } -Credential $Credentials
+#endregion
 ```
 
 #### Step 3 - Clear data disks
@@ -655,18 +656,34 @@ One prerequisite is to install NIC Drivers, but we already covered this in Task0
 In case disks were used before, it might be useful to wipe it.
 
 ```PowerShell
-    #region clean disks (if the servers are reporpused)
-        Invoke-Command -ComputerName $Servers -ScriptBlock {
-            $disks=Get-Disk | Where-Object IsBoot -eq $false
-            $disks | Set-Disk -IsReadOnly $false
-            $disks | Set-Disk -IsOffline $false
-            $disks | Clear-Disk -RemoveData -RemoveOEM -Confirm:0
-            $disks | get-disk | Set-Disk -IsOffline $true
-        } -Credential $Credentials
-    #endregion
+#region clean disks (if the servers are repurposed)
+    Invoke-Command -ComputerName $Servers -ScriptBlock {
+        $disks=Get-Disk | Where-Object IsBoot -eq $false
+        $disks | Set-Disk -IsReadOnly $false
+        $disks | Set-Disk -IsOffline $false
+        $disks | Clear-Disk -RemoveData -RemoveOEM -Confirm:0
+        $disks | get-disk | Set-Disk -IsOffline $true
+    } -Credential $Credentials
 #endregion
 
 ```
+
+#### Step 4 - Reboot iDRAC if needed
+
+Check if there is leftover in USB. This is be caused by DSU updating iDRAC, and might leave "leftover" attached to virtual USB.
+
+```PowerShell
+#check if there are any SECUPD devices attached
+Invoke-Command -ComputerName $Servers -ScriptBlock {get-disk | Where-Object FriendlyName -eq "Linux SECUPD"} -Credential $Credentials | Select-Object FriendlyName,Path,PSComputerName
+
+```
+
+![](./media/powershell14.png)
+
+if so, reboot iDRAC from webUI
+
+![](./media/edge10.png)
+
 
 ### Task 09 - Deploy Azure Local from Azure Portal
 
