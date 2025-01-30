@@ -722,7 +722,7 @@ $NICs | Where-Object interfacedescription -like Mellanox* | Select-Object Driver
         Copy-Item -Path "$MLNXDownloadFolder\Driver" -Destination "$MLNXDownloadFolder" -ToSession $Session -Force -Recurse
     }
 
-    #install Driver (not using mellanox util as it seems like it does not like 24h2?)
+    #install Driver
     Invoke-Command -Session $Sessions -ScriptBlock {
         pnputil /add-driver "$using:MLNXDownloadFolder\Driver\mlx5.inf" /install
         pnputil /enum-drivers
