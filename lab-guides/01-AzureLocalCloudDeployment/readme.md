@@ -470,8 +470,6 @@ In MSLab you can simply navigate to https://LTPNode1 and https://LTPNode2. In pr
 
 Log in with **Administrator/LS1setup!** and proceed with all three steps to register nodes to Azure.
 
-![](./media/edge01.png)
-
 ![](./media/edge02.png)
 
 ![](./media/edge03.png)
