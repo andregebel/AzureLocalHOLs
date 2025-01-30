@@ -470,8 +470,6 @@ In MSLab you can simply navigate to https://LTPNode1 and https://LTPNode2. In pr
 
 Log in with **Administrator/LS1setup!** and proceed with all three steps to register nodes to Azure.
 
-![](./media/edge01.png)
-
 ![](./media/edge02.png)
 
 ![](./media/edge03.png)
@@ -724,7 +722,7 @@ $NICs | Where-Object interfacedescription -like Mellanox* | Select-Object Driver
         Copy-Item -Path "$MLNXDownloadFolder\Driver" -Destination "$MLNXDownloadFolder" -ToSession $Session -Force -Recurse
     }
 
-    #install Driver (not using mellanox util as it seems like it does not like 24h2?)
+    #install Driver
     Invoke-Command -Session $Sessions -ScriptBlock {
         pnputil /add-driver "$using:MLNXDownloadFolder\Driver\mlx5.inf" /install
         pnputil /enum-drivers
