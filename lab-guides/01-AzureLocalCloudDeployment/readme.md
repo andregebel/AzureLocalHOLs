@@ -26,6 +26,7 @@
             - [Step 2 - Exclude iDRAC adapters from cluster networks](#step-2---exclude-idrac-adapters-from-cluster-networks)
             - [Step 3 - Clear data disks](#step-3---clear-data-disks)
             - [Step 4 - Reboot iDRAC if needed](#step-4---reboot-idrac-if-needed)
+            - [Step 5 - Install just Network Drivers - Mellanox](#step-5---install-just-network-drivers---mellanox)
         - [Task 09 - Deploy Azure Local from Azure Portal](#task-09---deploy-azure-local-from-azure-portal)
 
 <!-- /TOC -->
@@ -680,10 +681,63 @@ Invoke-Command -ComputerName $Servers -ScriptBlock {get-disk | Where-Object Frie
 
 ![](./media/powershell14.png)
 
-if so, reboot iDRAC from webUI
+if so, reboot iDRAC from webUI as it would interrupt deployment process as it would find attached USB media.
 
 ![](./media/edge10.png)
 
+#### Step 5 - Install just Network Drivers - Mellanox
+
+In case you want install just network driver, here is PowerShell script
+
+```PowerShell
+#check version
+$NICs=Invoke-Command -ComputerName $Servers -Credential $Credentials -ScriptBlock {get-NetAdapter}
+$NICs | Where-Object interfacedescription -like Mellanox* | Select-Object Driver*
+
+#region or install Mellanox network driver
+    $MLNXDownloadFolder="c:\Temp\Mellanox"
+
+    #Set up web client to download files with autheticated web request
+    $WebClient = New-Object System.Net.WebClient
+    #$proxy = new-object System.Net.WebProxy
+    $proxy = [System.Net.WebRequest]::GetSystemWebProxy()
+    $proxy.Credentials = [System.Net.CredentialCache]::DefaultCredentials
+    #$proxy.Address = $proxyAdr
+    #$proxy.useDefaultCredentials = $true
+    $WebClient.proxy = $proxy
+
+    $MLNXDriver="https://www.mellanox.com/downloads/WinOF/MLNX_WinOF2-24_4_50000_All_x64.exe"
+
+    if (-not (Test-Path $MLNXDownloadFolder -ErrorAction Ignore)){New-Item -Path $MLNXDownloadFolder -ItemType Directory}
+    #Start-BitsTransfer -Source $MLNXDriver -Destination $MLNXDownloadFolder\MLNX_WinOF2-24_4_50000_All_x64.exe
+    $WebClient.DownloadFile($MLNXDriver,"$MLNXDownloadFolder\MLNX_WinOF2-24_4_50000_All_x64.exe")
+
+    #unzip driver
+    &"$MLNXDownloadFolder\MLNX_WinOF2-24_4_50000_All_x64.exe" /a /vMT_DRIVERS_ONLY=1 /v"/qb TARGETDIR=$MLNXDownloadFolder\Driver"
+
+    #upload Driver to servers
+    $Sessions=New-PSSession -ComputerName $Servers -Credential $Credentials
+    Invoke-Command -Session $Sessions -ScriptBlock {
+        if (-not (Test-Path $using:MLNXDownloadFolder -ErrorAction Ignore)){New-Item -Path $using:MLNXDownloadFolder -ItemType Directory}
+    }
+    foreach ($Session in $Sessions){
+        Copy-Item -Path "$MLNXDownloadFolder\Driver" -Destination "$MLNXDownloadFolder" -ToSession $Session -Force -Recurse
+    }
+
+    #install Driver (not using mellanox util as it seems like it does not like 24h2?)
+    Invoke-Command -Session $Sessions -ScriptBlock {
+        pnputil /add-driver "$using:MLNXDownloadFolder\Driver\mlx5.inf" /install
+        pnputil /enum-drivers
+    }
+#endregion
+
+#check version again
+$NICs=Invoke-Command -ComputerName $Servers -Credential $Credentials -ScriptBlock {get-NetAdapter}
+$NICs | Where-Object interfacedescription -like Mellanox* | Select-Object Driver*
+ 
+```
+
+![](./media/powershell15.png)
 
 ### Task 09 - Deploy Azure Local from Azure Portal
 
