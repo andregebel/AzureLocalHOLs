@@ -150,6 +150,8 @@ Invoke-Command -ComputerName $Servers -ScriptBlock {
 
 ### Task02 - Install updates and features
 
+If you receive servers from factory, drivers are already installed. And since updating OS is optional, you can skip the entire task.
+
 #### Step 1 Install server features, and updates
 
 I prefer to install OS updates in this step as OS version (UBR) is 469, while January2025 version is 1308. OS updates are installed as part of deployment, so this step is optional.
