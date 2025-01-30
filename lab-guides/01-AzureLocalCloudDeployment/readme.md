@@ -106,7 +106,7 @@ Notice, that host is replying. Latest image Azure Local already allows ICMP pack
 #### Step 2 Check WinRM connectivity
 
 ```PowerShell
-Test-NetConnection -ComputerName "ALNode1","ALNode2" -CommonTCPPort WINRM
+"ALNode1","ALNode2" | Test-NetConnection -CommonTCPPort WINRM
 
 ```
 
