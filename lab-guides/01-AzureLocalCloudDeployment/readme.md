@@ -150,7 +150,9 @@ Invoke-Command -ComputerName $Servers -ScriptBlock {
 
 #### Step 1 Install server features, and updates
 
-I prefer to install OS updates in this step as OS version (UBR) is 469, while January2025 version is 1308. OS updates are installed as part of deployment.
+I prefer to install OS updates in this step as OS version (UBR) is 469, while January2025 version is 1308. OS updates are installed as part of deployment, so this step is optional.
+
+Features are also optional as features are already present in latest ISO.
 
 ```PowerShell
 #install hyper-v and Failover-Clustering feature (this is useful if you use older ISO)
