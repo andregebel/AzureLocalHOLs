@@ -1,4 +1,5 @@
 # Azure Local 23H2 Deployment
+
 <!-- TOC -->
 
 - [Azure Local 23H2 Deployment](#azure-local-23h2-deployment)
@@ -6,15 +7,17 @@
         - [Prerequisites](#prerequisites)
         - [LabConfig](#labconfig)
         - [NTP Prerequisite Virtual Lab](#ntp-prerequisite-virtual-lab)
+        - [Example Network Config AX Nodes - Example, needs to be modified](#example-network-config-ax-nodes---example-needs-to-be-modified)
     - [The Lab](#the-lab)
         - [Task01 - Validate connectivity to servers](#task01---validate-connectivity-to-servers)
             - [Step 1 Test name resolution works with simple ping](#step-1-test-name-resolution-works-with-simple-ping)
             - [Step 2 Check WinRM connectivity](#step-2-check-winrm-connectivity)
             - [Step 3 Connect to servers using WinRM](#step-3-connect-to-servers-using-winrm)
-        - [Task02 - Install updates and features](#task02---install-updates-and-features)
-            - [Step 1 Install server features, and updates](#step-1-install-server-features-and-updates)
-            - [Step 2 Install Dell Drivers - AX Nodes](#step-2-install-dell-drivers---ax-nodes)
-            - [Step 3 Restart servers to apply changes](#step-3-restart-servers-to-apply-changes)
+        - [Task02 - Install features & drivers](#task02---install-features--drivers)
+            - [Step 1 Install server features - skip with latest media](#step-1-install-server-features---skip-with-latest-media)
+            - [Step 2 Install Network Drivers - AXnodes - fresh install only](#step-2-install-network-drivers---axnodes---fresh-install-only)
+            - [Step 3 Install Dell Drivers - Optional - AX Nodes](#step-3-install-dell-drivers---optional---ax-nodes)
+            - [Step 4 Restart servers to apply changes](#step-4-restart-servers-to-apply-changes)
         - [Task03 - Validate environment using Environment Checker tool](#task03---validate-environment-using-environment-checker-tool)
         - [Task04 - Create Azure Resources](#task04---create-azure-resources)
         - [Task05 - Create AD Prerequisites](#task05---create-ad-prerequisites)
@@ -89,6 +92,33 @@ Get-VM *ALNode* | Disable-VMIntegrationService -Name "Time Synchronization"
 
 ```
 
+### Example Network Config (AX Nodes) - Example, needs to be modified
+
+If you receive servers from factory and you don't have DHCP, by default there's no Password set. Just log in, and configure password. Next thing is to configure Server Name, and IP config (+VLAN if needed)
+
+Here is code example that you can use if you provision multiple servers, so you can just populate pscustomobject and have one universal script.
+
+```PowerShell
+$Servers=@()
+$Servers+=[PSCustomObject]@{SerialNumber="asdfgh" ; ComputerName="Node1" ; NICName="Integrated NIC 1 Port 1-1" ;  IPAddress= "10.0.0.101" <# ; VLANID=101 #> }
+$Servers+=[PSCustomObject]@{SerialNumber="qwerty" ; ComputerName="Node2" ; NICName="Integrated NIC 1 Port 1-1" ;  IPAddress= "10.0.0.102" <# ; VLANID=101 #> }
+$DefaultGateway="10.0.0.1"
+$DNSServerAddresses=("10.0.0.1","10.0.0.2")
+
+$Serialnumber=(Get-CimInstance -ClassName win32_bios).SerialNumber
+#lookup server in PSCustomObject
+$Server=($Servers | Where-Object Serialnumber -EQ $Serialnumber)
+
+Rename-Computer -NewName $Server.ComputerName
+New-NetIPAddress -InterfaceAlias $Server.NICName -IPAddress $Server.IPAddress -PrefixLength 24 -DefaultGateway $DefaultGateway -Confirm:$false
+Set-DnsClientServerAddress -InterfaceAlias $Server.NICName  -ServerAddresses $DNSServerAddresses
+if ($Server.VLANID){
+    Set-NetAdapter -VlanID $Server.VLANID -InterfaceAlias $Server.NicName
+}
+Restart-Computer
+ 
+```
+
 ## The Lab
 
 **Run all commands from Management machine**
@@ -148,15 +178,13 @@ Invoke-Command -ComputerName $Servers -ScriptBlock {
 
 ![](./media/powershell05.png)
 
-### Task02 - Install updates and features
+### Task02 - Install features & drivers 
 
-If you receive servers from factory, drivers are already installed. And since updating OS is optional, you can skip the entire task.
+If you receive servers from factory, drivers are already installed, you can completely skip this task
 
-#### Step 1 Install server features, and updates
+#### Step 1 Install server features - skip with latest media
 
-I prefer to install OS updates in this step as OS version (UBR) is 469, while January2025 version is 1308. OS updates are installed as part of deployment, so this step is optional.
-
-Features are also optional as features are already present in latest ISO.
+Features are optional as features are already present in latest ISO.
 
 ```PowerShell
 #install hyper-v and Failover-Clustering feature (this is useful if you use older ISO)
@@ -167,52 +195,55 @@ Invoke-Command -ComputerName $servers -ScriptBlock {
     Install-WindowsFeature -Name Failover-Clustering
 } -Credential $Credentials
 
+```
 
-#Check servers version
-$ComputersInfo  = Invoke-Command -ComputerName $servers -ScriptBlock {
-    Get-ItemProperty -Path $using:RegistryPath
-} -Credential $Credentials
-$ComputersInfo | Select-Object PSComputerName,ProductName,DisplayVersion,UBR
+#### Step 2 Install Network Drivers - AXnodes - fresh install only
 
-#region update all servers
-    Invoke-Command -ComputerName $servers -ScriptBlock {
-        New-PSSessionConfigurationFile -RunAsVirtualAccount -Path $env:TEMP\VirtualAccount.pssc
-        Register-PSSessionConfiguration -Name 'VirtualAccount' -Path $env:TEMP\VirtualAccount.pssc -Force
-    } -ErrorAction Ignore -Credential $Credentials
-    #sleep a bit
-    Start-Sleep 2
-    # Run Windows Update via ComObject.
-    Invoke-Command -ComputerName $servers -ConfigurationName 'VirtualAccount' -ScriptBlock {
-        $Searcher = New-Object -ComObject Microsoft.Update.Searcher
-        $SearchCriteriaAllUpdates = "IsInstalled=0 and DeploymentAction='Installation' or
-                                IsInstalled=0 and DeploymentAction='OptionalInstallation' or
-                                IsPresent=1 and DeploymentAction='Uninstallation' or
-                                IsInstalled=1 and DeploymentAction='Installation' and RebootRequired=1 or
-                                IsInstalled=0 and DeploymentAction='Uninstallation' and RebootRequired=1"
-        $SearchResult = $Searcher.Search($SearchCriteriaAllUpdates).Updates
-        if ($SearchResult.Count -gt 0){
-            $Session = New-Object -ComObject Microsoft.Update.Session
-            $Downloader = $Session.CreateUpdateDownloader()
-            $Downloader.Updates = $SearchResult
-            $Downloader.Download()
-            $Installer = New-Object -ComObject Microsoft.Update.Installer
-            $Installer.Updates = $SearchResult
-            $Result = $Installer.Install()
-            $Result
+```PowerShell
+#you can lookup latest driver in https://dell.github.io/azurestack-docs/docs/hci/supportmatrix/
+    #region check if NICs are Intel or Mellanox
+        $NICs=Invoke-Command -ComputerName $servers -ScriptBlock {
+            Get-NetAdapter
+        } -Credential $Credentials
+        If ($NICs | Where InterfaceDescription -like "Mellanox*" ){
+            #nvidia/mellanox
+            $URL="https://dl.dell.com/FOLDER11591518M/2/Network_Driver_G6M58_WN64_24.04.03_01.EXE"
+        }else{
+            #intel
+            $URL="https://dl.dell.com/FOLDER11890492M/1/Network_Driver_6JHVK_WN64_23.0.0_A00.EXE"
         }
-    } -Credential $Credentials
-    #remove temporary PSsession config
-    Invoke-Command -ComputerName $servers -ScriptBlock {
-        Unregister-PSSessionConfiguration -Name 'VirtualAccount'
-        Remove-Item -Path $env:TEMP\VirtualAccount.pssc
-    }  -Credential $Credentials
-#endregion
+    #endregion
+
+    #region download
+        #Set up web client to download files with authenticated web request in case there's a proxy
+        $WebClient = New-Object System.Net.WebClient
+        #$proxy = new-object System.Net.WebProxy
+        $proxy = [System.Net.WebRequest]::GetSystemWebProxy()
+        $proxy.Credentials = [System.Net.CredentialCache]::DefaultCredentials
+        #$proxy.Address = $proxyAdr
+        #$proxy.useDefaultCredentials = $true
+        $WebClient.proxy = $proxy
+        #add headers wihth user-agent as some versions of SBE requires it for download
+        $webclient.Headers.Add("User-Agent", "WhateverUser-AgentString/1.0")
+        $FileName=$($URL.Split("/")| Select-Object -Last 1)
+        $WebClient.DownloadFile($URL,"$env:userprofile\Downloads\$FileName")
+    #endregion
+
+    #region copy driver to nodes and install
+        $sessions = New-PSSession -ComputerName $Servers -Credential $Credentials
+        foreach ($Session in $Sessions){
+            Copy-Item -Path $env:userprofile\Downloads\$FileName -Destination c:\$UserName\Downloads\$FileName -ToSession $session
+        }
+        
+        #install
+        Invoke-Command -ComputerName $Servers -ScriptBlock {
+            Start-Process -FilePath c:\$Using:UserName\Downloads\$using:FileName -ArgumentList "/i /s" -Wait
+        } -Credential $Credentials
+    #endregion
 
 ```
 
-#### Step 2 Install Dell Drivers - AX Nodes
-
-The validation process later in the guide makes sure if you don't have default NIC driver. So you can either install all drivers, or just Mellanox/Intel NIC driver.
+#### Step 3 Install Dell Drivers - Optional - AX Nodes
 
 Following example installs all drivers and in case you have newer drivers, it will downgrade. You can simply modify the code to just scan for compliance and display status. This will also make your life easier if for some reason you updated to newer drivers than SBE. SBE would fail as firmware extension can't downgrade.
 
@@ -320,7 +351,7 @@ Following example installs all drivers and in case you have newer drivers, it wi
 
 ![](./media/powershell11.png)
 
-#### Step 3 Restart servers to apply changes
+#### Step 4 Restart servers to apply changes
 
 ```PowerShell
 #region restart servers to apply changes
@@ -333,6 +364,7 @@ Following example installs all drivers and in case you have newer drivers, it wi
 #endregion
 
 #Check servers version again
+$RegistryPath = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\'
 $ComputersInfo  = Invoke-Command -ComputerName $servers -ScriptBlock {
     Get-ItemProperty -Path $using:RegistryPath
 } -Credential $Credentials
@@ -351,10 +383,14 @@ Since we already have credentials and TrustedHosts configured in Powershell from
 > for some reason I was not able to run it using sessions as it complained about not being able to create PSDrive
 
 ```PowerShell
-$result=Invoke-Command -ComputerName $Servers -Scriptblock {
+#install modules
+Invoke-Command -ComputerName $Servers -Scriptblock {
     Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
     Install-Module PowerShellGet -AllowClobber -Force
     Install-Module -Name AzStackHci.EnvironmentChecker -Force
+} -Credential $Credentials
+#validate environment
+$result=Invoke-Command -ComputerName $Servers -Scriptblock {
     Invoke-AzStackHciConnectivityValidation -PassThru
 } -Credential $Credentials
 $result | Out-GridView
@@ -362,6 +398,13 @@ $result | Out-GridView
 ```
 
 ![](./media/powershell06.png)
+
+You can select just failed URLs with this PowerShell
+
+```PowerShell
+($result | Where-Object Status -eq Failure).TargetResourceName | Select-Object -Unique
+ 
+```
 
 ### Task04 - Create Azure Resources
 
@@ -395,7 +438,7 @@ $Location="eastus"
         }
 #region (Optional) configure ARC Gateway
 <#
-    #install az arcgateway module
+    #install az.arcgateway module
         if (!(Get-InstalledModule -Name az.arcgateway -ErrorAction Ignore)){
             Install-Module -Name az.arcgateway -Force
         }
@@ -406,7 +449,11 @@ $Location="eastus"
         Register-AzResourceProvider -ProviderNamespace "Microsoft.AzureStackHCI"
 
     #create GW
-    $ArcGWInfo=New-AzArcGateway -Name $GatewayName -ResourceGroupName $ResourceGroupName -Location $Location -SubscriptionID $Subscription.ID
+    if (Get-AzArcGateway -Name $gatewayname -ResourceGroupName $ResourceGroupName -ErrorAction Ignore){
+        $ArcGWInfo=Get-AzArcGateway -Name $gatewayname -ResourceGroupName $ResourceGroupName
+    }else{
+        $ArcGWInfo=New-AzArcGateway -Name $GatewayName -ResourceGroupName $ResourceGroupName -Location $Location -SubscriptionID $Subscription.ID
+    }
 #>
 #endregion
 
@@ -518,6 +565,31 @@ More info: https://learn.microsoft.com/en-us/azure/azure-local/deploy/deployment
     Invoke-Command -ComputerName $Servers -ScriptBlock {
         Install-Module -Name Az.ConnectedMachine -Force
     } -Credential $Credentials
+#endregion
+
+#region or copy downloaded modules to nodes if above does not work
+<#
+    #download powershell modules
+    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+    $Modules="azshci.arcinstaller","Az.Resources","az.accounts","Az.ConnectedMachine"
+
+    #create folder for modules
+    New-Item -Path $env:USERPROFILE\Downloads\ -Name "modules" -ItemType Directory -ErrorAction Ignore
+    foreach ($Module in $Modules){
+        Save-Module -Name $Module -Path $env:USERPROFILE\Downloads\Modules
+    }
+
+    #copy modules to servers
+        #create sessions
+        $Sessions=New-PSSession -ComputerName $Servers -Credential $Credentials
+        #copy
+        foreach ($Session in $Sessions){
+            Copy-Item -Path $env:USERPROFILE\Downloads\Modules\* -Destination 'C:\Program Files\WindowsPowerShell\Modules' -Recurse -ToSession $Session -ErrorAction Ignore
+        }
+
+    #remove sessions
+    $Sessions | Remove-PSSession
+#>
 #endregion
 
 #Make sure resource providers are registered
