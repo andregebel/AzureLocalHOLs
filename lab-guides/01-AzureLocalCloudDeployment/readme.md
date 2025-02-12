@@ -7,17 +7,18 @@
         - [Prerequisites](#prerequisites)
         - [LabConfig](#labconfig)
         - [NTP Prerequisite Virtual Lab](#ntp-prerequisite-virtual-lab)
-        - [Example Network Config AX Nodes - Example, needs to be modified](#example-network-config-ax-nodes---example-needs-to-be-modified)
+        - [Example Initial Config AX Nodes - Example, needs to be modified](#example-initial-config-ax-nodes---example-needs-to-be-modified)
     - [The Lab](#the-lab)
         - [Task01 - Validate connectivity to servers](#task01---validate-connectivity-to-servers)
             - [Step 1 Test name resolution works with simple ping](#step-1-test-name-resolution-works-with-simple-ping)
             - [Step 2 Check WinRM connectivity](#step-2-check-winrm-connectivity)
             - [Step 3 Connect to servers using WinRM](#step-3-connect-to-servers-using-winrm)
         - [Task02 - Install features & drivers](#task02---install-features--drivers)
-            - [Step 1 Install server features - skip with latest media](#step-1-install-server-features---skip-with-latest-media)
+            - [Step 1 Install server features - skip if you use latest media](#step-1-install-server-features---skip-if-you-use-latest-media)
             - [Step 2 Install Network Drivers - AXnodes - fresh install only](#step-2-install-network-drivers---axnodes---fresh-install-only)
             - [Step 3 Install Dell Drivers - Optional - AX Nodes](#step-3-install-dell-drivers---optional---ax-nodes)
             - [Step 4 Restart servers to apply changes](#step-4-restart-servers-to-apply-changes)
+            - [Step 5 Rename Network adapters - Optional](#step-5-rename-network-adapters---optional)
         - [Task03 - Validate environment using Environment Checker tool](#task03---validate-environment-using-environment-checker-tool)
         - [Task04 - Create Azure Resources](#task04---create-azure-resources)
         - [Task05 - Create AD Prerequisites](#task05---create-ad-prerequisites)
@@ -29,7 +30,6 @@
             - [Step 2 - Exclude iDRAC adapters from cluster networks](#step-2---exclude-idrac-adapters-from-cluster-networks)
             - [Step 3 - Clear data disks](#step-3---clear-data-disks)
             - [Step 4 - Reboot iDRAC if needed](#step-4---reboot-idrac-if-needed)
-            - [Step 5 - Install just Network Drivers - Mellanox](#step-5---install-just-network-drivers---mellanox)
         - [Task 09 - Deploy Azure Local from Azure Portal](#task-09---deploy-azure-local-from-azure-portal)
 
 <!-- /TOC -->
@@ -92,7 +92,7 @@ Get-VM *ALNode* | Disable-VMIntegrationService -Name "Time Synchronization"
 
 ```
 
-### Example Network Config (AX Nodes) - Example, needs to be modified
+### Example Initial Config (AX Nodes) - Example, needs to be modified
 
 If you receive servers from factory and you don't have DHCP, by default there's no Password set. Just log in, and configure password. Next thing is to configure Server Name, and IP config (+VLAN if needed)
 
@@ -182,7 +182,7 @@ Invoke-Command -ComputerName $Servers -ScriptBlock {
 
 If you receive servers from factory, drivers are already installed, you can completely skip this task
 
-#### Step 1 Install server features - skip with latest media
+#### Step 1 Install server features - skip if you use latest media
 
 Features are optional as features are already present in latest ISO.
 
@@ -201,6 +201,12 @@ Invoke-Command -ComputerName $servers -ScriptBlock {
 
 ```PowerShell
 #you can lookup latest driver in https://dell.github.io/azurestack-docs/docs/hci/supportmatrix/
+
+    #region check version first
+        $NICs=Invoke-Command -ComputerName $Servers -Credential $Credentials -ScriptBlock {get-NetAdapter}
+        $NICs | Where-Object {$_.InterfaceDescription -like "Intel*" -or $_.InterfaceDescription -Like "Mellanox*"} | Select-Object Driver*
+    #endregion
+
     #region check if NICs are Intel or Mellanox
         $NICs=Invoke-Command -ComputerName $servers -ScriptBlock {
             Get-NetAdapter
@@ -232,16 +238,30 @@ Invoke-Command -ComputerName $servers -ScriptBlock {
     #region copy driver to nodes and install
         $sessions = New-PSSession -ComputerName $Servers -Credential $Credentials
         foreach ($Session in $Sessions){
-            Copy-Item -Path $env:userprofile\Downloads\$FileName -Destination c:\$UserName\Downloads\$FileName -ToSession $session
+            Copy-Item -Path $env:userprofile\Downloads\$FileName -Destination c:\users\$UserName\Downloads\$FileName -ToSession $session
         }
         
         #install
         Invoke-Command -ComputerName $Servers -ScriptBlock {
-            Start-Process -FilePath c:\$Using:UserName\Downloads\$using:FileName -ArgumentList "/i /s" -Wait
+            Start-Process -FilePath c:\users\$Using:UserName\Downloads\$using:FileName -ArgumentList "/i /s" -Wait
         } -Credential $Credentials
     #endregion
 
+    #region check version again
+        $NICs=Invoke-Command -ComputerName $Servers -Credential $Credentials -ScriptBlock {get-NetAdapter}
+        $NICs | Where-Object {$_.InterfaceDescription -like "Intel*" -or $_.InterfaceDescription -Like "Mellanox*"} | Select-Object Driver*
+    #endregion
+
 ```
+
+Before
+
+![](./media/powershell16.png)
+
+After
+
+![](./media/powershell17.png)
+
 
 #### Step 3 Install Dell Drivers - Optional - AX Nodes
 
@@ -353,6 +373,8 @@ Following example installs all drivers and in case you have newer drivers, it wi
 
 #### Step 4 Restart servers to apply changes
 
+Needed only if you installed features and all dell drivers (as firmware update requires reboot)
+
 ```PowerShell
 #region restart servers to apply changes
     Restart-Computer -ComputerName $Servers -Credential $Credentials -WsmanAuthentication Negotiate -Wait -For PowerShell
@@ -373,6 +395,33 @@ $ComputersInfo | Select-Object PSComputerName,ProductName,DisplayVersion,UBR
 ```
 
 ![](./media/powershell13.png)
+
+#### Step 5 Rename Network adapters - Optional
+
+Since new ISO is renaming adapters to simply Port 0, Port1, ... it might be useful to revert back to original names that describe physical position
+
+```PowerShell
+Invoke-Command -ComputerName $Servers -ScriptBlock {
+    $AdaptersHWInfo=Get-NetAdapterHardwareInfo
+    foreach ($Adapter in $AdaptersHWInfo){
+        if ($adapter.Slot){
+            $NewName="Slot $($Adapter.Slot) Port $($Adapter.Function +1)"
+        }else{
+            $NewName="NIC$($Adapter.Function +1)"
+        }
+        $adapter | Rename-NetAdapter -NewName $NewName
+    }
+} -Credential $Credentials
+ 
+```
+
+Before
+
+![](./media/powershell18.png)
+
+After
+
+![](./media/powershell19.png)
 
 ### Task03 - Validate environment using Environment Checker tool
 
@@ -669,6 +718,11 @@ One prerequisite is to install NIC Drivers, but we already covered this in Task0
 #### Step 1 - Populate latest SBE package (AXNodes only)
 
 ```PowerShell
+    #15G 
+    $LatestSBE="https://dl.dell.com/FOLDER12528657M/1/Bundle_SBE_Dell_AX-15G_4.1.2412.1201.zip"
+    #or 16G
+    #$LatestSBE="https://dl.dell.com/FOLDER12528644M/1/Bundle_SBE_Dell_AX-16G_4.1.2412.1202.zip"
+
     #region populate SBE package
         #Set up web client to download files with authenticated web request in case there's a proxy
         $WebClient = New-Object System.Net.WebClient
@@ -682,9 +736,6 @@ One prerequisite is to install NIC Drivers, but we already covered this in Task0
         $webclient.Headers.Add("User-Agent", "WhateverUser-AgentString/1.0")
 
         #Download SBE
-            $LatestSBE="https://dl.dell.com/FOLDER12528657M/1/Bundle_SBE_Dell_AX-15G_4.1.2412.1201.zip"
-            #or 16G
-            #$LatestSBE="https://dl.dell.com/FOLDER12528644M/1/Bundle_SBE_Dell_AX-16G_4.1.2412.1202.zip"
             $FileName=$($LatestSBE.Split("/")| Select-Object -Last 1)
             $WebClient.DownloadFile($LatestSBE,"$env:userprofile\Downloads\$FileName")
 
@@ -717,8 +768,8 @@ One prerequisite is to install NIC Drivers, but we already covered this in Task0
 ```PowerShell
 #region exclude iDRAC adapters from cluster networks (as validation was failing in latest versions)
     Invoke-Command -computername $Servers -scriptblock {
-        New-Item -Path HKLM:\system\currentcontrolset\services\clussvc\parameters
-        New-ItemProperty -Path HKLM:\system\currentcontrolset\services\clussvc\parameters -Name ExcludeAdaptersByDescription -Value "Remote NDIS Compatible Device"
+        New-Item -Path HKLM:\system\currentcontrolset\services\clussvc\parameters -ErrorAction Ignore
+        New-ItemProperty -Path HKLM:\system\currentcontrolset\services\clussvc\parameters -Name ExcludeAdaptersByDescription -Value "Remote NDIS Compatible Device" -ErrorAction Ignore
         #Get-ItemProperty -Path HKLM:\system\currentcontrolset\services\clussvc\parameters -Name ExcludeAdaptersByDescription | Format-List ExcludeAdaptersByDescription
     } -Credential $Credentials
 #endregion
@@ -756,60 +807,6 @@ Invoke-Command -ComputerName $Servers -ScriptBlock {get-disk | Where-Object Frie
 if so, reboot iDRAC from webUI as it would interrupt deployment process as it would find attached USB media.
 
 ![](./media/edge10.png)
-
-#### Step 5 - Install just Network Drivers - Mellanox
-
-In case you want install just network driver, here is PowerShell script
-
-```PowerShell
-#check version
-$NICs=Invoke-Command -ComputerName $Servers -Credential $Credentials -ScriptBlock {get-NetAdapter}
-$NICs | Where-Object interfacedescription -like Mellanox* | Select-Object Driver*
-
-#region or install Mellanox network driver
-    $MLNXDownloadFolder="c:\Temp\Mellanox"
-
-    #Set up web client to download files with autheticated web request
-    $WebClient = New-Object System.Net.WebClient
-    #$proxy = new-object System.Net.WebProxy
-    $proxy = [System.Net.WebRequest]::GetSystemWebProxy()
-    $proxy.Credentials = [System.Net.CredentialCache]::DefaultCredentials
-    #$proxy.Address = $proxyAdr
-    #$proxy.useDefaultCredentials = $true
-    $WebClient.proxy = $proxy
-
-    $MLNXDriver="https://www.mellanox.com/downloads/WinOF/MLNX_WinOF2-24_4_50000_All_x64.exe"
-
-    if (-not (Test-Path $MLNXDownloadFolder -ErrorAction Ignore)){New-Item -Path $MLNXDownloadFolder -ItemType Directory}
-    #Start-BitsTransfer -Source $MLNXDriver -Destination $MLNXDownloadFolder\MLNX_WinOF2-24_4_50000_All_x64.exe
-    $WebClient.DownloadFile($MLNXDriver,"$MLNXDownloadFolder\MLNX_WinOF2-24_4_50000_All_x64.exe")
-
-    #unzip driver
-    &"$MLNXDownloadFolder\MLNX_WinOF2-24_4_50000_All_x64.exe" /a /vMT_DRIVERS_ONLY=1 /v"/qb TARGETDIR=$MLNXDownloadFolder\Driver"
-
-    #upload Driver to servers
-    $Sessions=New-PSSession -ComputerName $Servers -Credential $Credentials
-    Invoke-Command -Session $Sessions -ScriptBlock {
-        if (-not (Test-Path $using:MLNXDownloadFolder -ErrorAction Ignore)){New-Item -Path $using:MLNXDownloadFolder -ItemType Directory}
-    }
-    foreach ($Session in $Sessions){
-        Copy-Item -Path "$MLNXDownloadFolder\Driver" -Destination "$MLNXDownloadFolder" -ToSession $Session -Force -Recurse
-    }
-
-    #install Driver
-    Invoke-Command -Session $Sessions -ScriptBlock {
-        pnputil /add-driver "$using:MLNXDownloadFolder\Driver\mlx5.inf" /install
-        pnputil /enum-drivers
-    }
-#endregion
-
-#check version again
-$NICs=Invoke-Command -ComputerName $Servers -Credential $Credentials -ScriptBlock {get-NetAdapter}
-$NICs | Where-Object interfacedescription -like Mellanox* | Select-Object Driver*
- 
-```
-
-![](./media/powershell15.png)
 
 ### Task 09 - Deploy Azure Local from Azure Portal
 
